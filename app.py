@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import subprocess
-import json
-import os
 
 # 設定網頁標題與佈局
 st.set_page_config(page_title="天使投資公司決策儀表板", page_icon="👼", layout="wide")
@@ -19,28 +16,15 @@ st.sidebar.info(
 )
 
 SHEET_ID = "1YIbuxAJXMHFwFFjWZvnudiPDlA7tagVBUNAP2yVPYpo"
-HERMES_HOME = os.path.expanduser("~/.hermes")
-API_SCRIPT = os.path.join(HERMES_HOME, "skills/productivity/google-workspace/scripts/google_api.py")
+# 改用最穩定的 CSV 匯出網址直接讀取公開資料
+CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 @st.cache_data(ttl=300)
 def load_data():
-    cmd = [
-        "uv", "tool", "run", 
-        "--with", "google-api-python-client", 
-        "--with", "google-auth-oauthlib", 
-        "--with", "google-auth-httplib2", 
-        "python3", API_SCRIPT, 
-        "sheets", "get", SHEET_ID, "工作表1!A1:Z20"
-    ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        data = json.loads(result.stdout)
-        if len(data) > 1:
-            df = pd.DataFrame(data[1:], columns=data[0])
-            return df
-        return None
+        df = pd.read_csv(CSV_URL)
+        return df
     except Exception as e:
-        st.error("讀取 Google Sheet 失敗，請確認授權狀態。")
         return None
 
 df = load_data()
@@ -66,4 +50,5 @@ if df is not None and not df.empty:
             fig_ratio.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig_ratio, use_container_width=True)
 else:
-    st.warning("⚠️ 目前試算表內沒有資料或正在載入中。")
+    st.error("讀取 Google Sheet 失敗。請確認試算表權限已設為「知道連結的人均可檢視」。")
+
